@@ -104,7 +104,7 @@ class ShopfloorAPI:
             df = df[df["POSITION"].isin(position_list)]
             df.reset_index(drop=True)
         df.columns = ['PersonNo', 'Year', 'Month', 'Day', 'Shift', 'SapShiftCode',
-       'Dept', 'SubDept', 'Gender', 'Line', 'Position']
+       'Dept', 'SubDept', 'Gender', 'Line', 'LineID', 'Position']
 
 
         return df
@@ -195,7 +195,7 @@ class ShopfloorAPI:
             return pd.DataFrame()
 
         df = pd.DataFrame(data)
-        df.columns = ['LineName','OJTCode','SkillName','EmpType','RequiredCount']
+        df.columns = ['LineName','OJTCode','SkillName','EmpType','PreferGender','RequiredCount']
         df.insert(0, "LineID", line_id)
 
 
@@ -204,25 +204,23 @@ class ShopfloorAPI:
     # =========================
     # 部门线体group
     # =========================
-    def get_line_by_dept_and_group_df(self,
+    def get_line_by_dept_and_subdept_df(self,
                                       dept_name: str,
-                                      sub_dept_name: str = "",
-                                      group_name: str = "") -> pd.DataFrame:
+                                      sub_dept_name: str = "") -> pd.DataFrame:
 
         data = self._post(
-            "getgrouplines",
+            "getdeptlinegroup",
             json_data={
                 "deptName": dept_name,
-                "subDept": sub_dept_name,  # 这里改
-                "groupName": group_name
+                "subDept": sub_dept_name
             }
         )
         if not data:
             return pd.DataFrame()
         df = pd.DataFrame(data)
+        df.columns = ["LineGroup","LineName","LineId"]
         df.insert(0, "Dept", dept_name)
         df.insert(1, "SubDept", sub_dept_name)
-        df.insert(2, "LineGroup", group_name)
 
         return df
 
@@ -239,15 +237,15 @@ if __name__ == "__main__":
     # # # 当日是regular还是OT
     # # # 加班是否导致持续7天工作(劳动法）
     # # # 白天加班是否和前一天晚上上班冲突
-    # emp_working_status_df = api.get_employee_working_status_df("ME/MOE6-CN","ME/MFO6.5-CN",['Shopfloor leader', 'OP', 'MH', 'VI'])
-    # today_emp_status_df = emp_working_status_df[
-    #     (emp_working_status_df['Year'] == "2026") & (emp_working_status_df['Month'] == "03") & (emp_working_status_df['Day'] == "12")]
-    # print(emp_working_status_df.shape)
-    # print(emp_working_status_df.head())
-    # print(emp_working_status_df.columns)
-    # print(emp_working_status_df['Shift'])
-    # print(today_emp_status_df["SapShiftCode"])
-    # print(emp_working_status_df[emp_working_status_df['PersonNo'] == '88840982'])
+    emp_working_status_df = api.get_employee_working_status_df("ME/MOE6-CN","ME/MFO6.5-CN",['Shopfloor leader', 'OP', 'MH', 'VI'])
+    today_emp_status_df = emp_working_status_df[
+        (emp_working_status_df['Year'] == "2026") & (emp_working_status_df['Month'] == "03") & (emp_working_status_df['Day'] == "12")]
+    print(emp_working_status_df.shape)
+    print(emp_working_status_df.head())
+    print(emp_working_status_df.columns)
+    print(emp_working_status_df['Shift'])
+    print(today_emp_status_df["SapShiftCode"])
+    print(emp_working_status_df[emp_working_status_df['PersonNo'] == '88840982'])
     # #subdept下员工目前的加班时长
     # emp_ot_df = api.get_employee_ot_df(
     #     "ME/MOE6-CN","ME/MFO6.5-CN")
@@ -274,10 +272,11 @@ if __name__ == "__main__":
     line_skill_df = api.get_line_skill_df("33")
     print(line_skill_df.shape)
     print(line_skill_df.head())
+    print(line_skill_df.columns)
     # subdept下线体是否多个group分组 导致人员互换有限制  本线体员工最优 其次优先级一样
-    line_by_dept_and_group_df = api.get_line_by_dept_and_group_df("ME/MOE6-CN","ME/MFO6.5-CN","FA")
-    print(line_by_dept_and_group_df.shape)
-    print(line_by_dept_and_group_df.head())
+    line_by_dept_and_subdept_df = api.get_line_by_dept_and_subdept_df("ME/MOE6-CN","ME/MFO6.5-CN")
+    print(line_by_dept_and_subdept_df.shape)
+    print(line_by_dept_and_subdept_df.head())
 
 
 
