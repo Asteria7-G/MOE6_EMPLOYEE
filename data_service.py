@@ -19,6 +19,19 @@ class ShopfloorScheduler:
         self.emp_status_df = pd.DataFrame()
         self.person_off_dict = {}
 
+    @staticmethod
+    def _normalize_int_str(value):
+        """把 '03' / 3 / '3.0' 统一成 '3'，用于日期字段比对。"""
+        if pd.isna(value):
+            return ""
+        s = str(value).strip()
+        if not s:
+            return ""
+        try:
+            return str(int(float(s)))
+        except ValueError:
+            return s
+
     def _fetch_base_data(self):
         """内部方法：统一拉取所有必要的基础数据"""
         # 获取休假代码
@@ -65,26 +78,36 @@ class ShopfloorScheduler:
         """处理线体需求数据"""
         task_df = pd.DataFrame(inline_data)
         if task_df.empty: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        task_df["LineID"] = task_df["LineID"].astype(str)
 
-        # subdept下的所有line和所属group的df
-        all_group_line_df =  self.api.get_line_by_dept_and_subdept_df(self.dept, self.sub_dept)
-        print(all_group_line_df)
+        # 批量获取线体信息和技能
+        line_groups = task_df['LineGroup'].unique()
+        all_group_line_df = self.api.get_line_by_dept_and_subdept_df(self.dept, self.sub_dept)
+
         line_ids = task_df['LineID'].unique()
-        print(line_ids)
         all_line_skill_df = pd.concat([
-            self.api.get_line_skill_df(lid) for lid in line_ids if lid
+        self.api.get_line_skill_df(lid)
+        for lid in line_ids if str(lid).strip()
         ], ignore_index=True)
 
         merged_task = pd.merge(
+
             task_df,
-            all_line_skill_df[['LineID', 'OJTCode', 'SkillName', 'EmpType', 'PreferGender', 'RequiredCount']],
+
+            all_line_skill_df[['LineID', 'OJTCode', 'SkillName', 'EmpType', 'RequiredCount']],
+
             on='LineID', how='left'
+
         ).rename(columns={'Date': 'Day'})
 
         return (
+
             all_group_line_df,
+
             merged_task[merged_task['DorN'] == 'D'].reset_index(drop=True),
+
             merged_task[merged_task['DorN'] == 'N'].reset_index(drop=True)
+
         )
 
     def prepare_emp_resources(self):
@@ -96,9 +119,14 @@ class ShopfloorScheduler:
         emp_skill_df = self.api.get_employee_skill_df(self.dept, self.sub_dept)
 
         # 2. 筛选当日状态
-        today_mask = (self.emp_status_df['Year'] == self.year) & \
-                     (self.emp_status_df['Month'] == self.month) & \
-                     (self.emp_status_df['Day'] == self.day)
+        year_v = self._normalize_int_str(self.year)
+        month_v = self._normalize_int_str(self.month)
+        day_v = self._normalize_int_str(self.day)
+
+        year_col = self.emp_status_df['Year'].map(self._normalize_int_str)
+        month_col = self.emp_status_df['Month'].map(self._normalize_int_str)
+        day_col = self.emp_status_df['Day'].map(self._normalize_int_str)
+        today_mask = (year_col == year_v) & (month_col == month_v) & (day_col == day_v)
 
         df = self.emp_status_df[today_mask].copy()
 
